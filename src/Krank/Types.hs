@@ -44,9 +44,10 @@ data Localized t = Localized
   deriving (Show, Eq)
 
 data Violation = Violation
-  { -- | A textual representation of the checker. Most of the time that's
-    -- the chunck of text parsed
+  { -- | The name of the checker which produced this violation
     checker :: Text,
+    -- | The chunck of text the checker looked at, such as an issue URL
+    subject :: Text,
     -- | The 'ViolationLevel' associated with the result
     level :: ViolationLevel,
     -- | A message describing the error
@@ -64,7 +65,9 @@ data KrankConfig = KrankConfig
     -- | If 'True', all IO operations, such as HTTP requests, are ignored
     dryRun :: Bool,
     -- | Use color for formatting
-    useColors :: Bool
+    useColors :: Bool,
+    -- | If 'True', violations are written to stdout as a JSON array
+    jsonOutput :: Bool
   }
   deriving (Show)
 

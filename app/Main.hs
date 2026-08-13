@@ -18,6 +18,7 @@ import PyF (fmt)
 import System.Console.Pretty (supportsPretty)
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
+import System.IO (hPrint, hPutStrLn, hSetEncoding, stderr, stdout, utf8)
 import System.Process
 import Text.Regex.PCRE.Heavy
 import Version (displayVersion)
@@ -65,6 +66,13 @@ noColorParse =
           <> Opt.help "Disable colored outputs. You can also set NO_COLOR environment variable."
       )
 
+jsonOutputParse :: Opt.Parser Bool
+jsonOutputParse =
+  Opt.switch
+    ( Opt.long "json"
+        <> Opt.help "Write the violations to stdout as a JSON array instead of human readable text. Errors are still reported on stderr."
+    )
+
 versionParse :: Opt.Parser (a -> a)
 versionParse =
   Opt.infoOption
@@ -85,6 +93,7 @@ optionsParser =
                   <> Opt.help "Perform a dry run. Parse file, but do not execute HTTP requests"
               )
             <*> noColorParse
+            <*> jsonOutputParse
         )
 
 opts :: Opt.ParserInfo KrankOpts
@@ -98,6 +107,13 @@ opts =
 
 main :: IO ()
 main = do
+  -- The files krank reads are arbitrary bytes and the JSON output has to be
+  -- valid UTF-8 whatever the locale is. Without this, a non ASCII character
+  -- makes the write fail under a non UTF-8 locale, such as the LANG-less
+  -- environment of most CI images.
+  hSetEncoding stdout utf8
+  hSetEncoding stderr utf8
+
   noColor <- isJust <$> lookupEnv "NO_COLOR"
   colorSupport <- supportsPretty
 
@@ -116,14 +132,16 @@ main = do
   success <- runReaderT (unKrank $ runKrank files) kConfig
   unless success exitFailure
 
+-- Note: those diagnostics go to stderr so that stdout stays a valid JSON
+-- document when --json is used
 noGitFailure :: SomeException -> IO [String]
 noGitFailure e = do
-  print e
-  putStrLn "`Git` was not found, trying to list files using `find`"
+  hPrint stderr e
+  hPutStrLn stderr "`Git` was not found, trying to list files using `find`"
   (lines <$> readProcess "find" [""] "") `catch` findFailure
 
 findFailure :: SomeException -> IO [FilePath]
 findFailure e = do
-  print e
-  putStrLn "`find` was not found, please pass file argument manually"
+  hPrint stderr e
+  hPutStrLn stderr "`find` was not found, please pass file argument manually"
   pure []

@@ -18,12 +18,15 @@ showViolation ::
   Bool ->
   Violation ->
   Text
-showViolation useColors Violation {checker, location, level, message} =
+showViolation useColors Violation {checker, subject, location, level, message} =
   [fmt|
 {showSourcePos location}: {showViolationLevel useColors level}:
-{indent 2 checker}
+{indent 2 checkerLine}
 {indent 4 message}
 |]
+  where
+    checkerLine :: Text
+    checkerLine = [fmt|{checker} check for {subject}|]
 
 showViolationLevel :: Bool -> ViolationLevel -> String
 showViolationLevel enableColor = \case

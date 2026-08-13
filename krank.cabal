@@ -43,6 +43,7 @@ library
                        Krank.Checkers.Ignore
                        Krank.Checkers.IssueTracker
                        Krank.Formatter
+                       Krank.Formatter.Json
                        Krank.Types
                        Utils.Display
                        Utils.Github
@@ -65,6 +66,7 @@ test-suite krank-test
                        Krank.Checkers.Ignore
                        Krank.Checkers.IssueTracker
                        Krank.Formatter
+                       Krank.Formatter.Json
                        Krank.Types
                        Utils.Display
                        Utils.Github

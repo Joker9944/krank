@@ -50,6 +50,26 @@ You can check `krank --help` for a list of options, such as
 configuring your API token for external services, such as github and
 gitlab.
 
+## JSON output
+
+With `--json`, `krank` writes the violations to stdout as a JSON array, so they
+can be consumed by other tools instead of being read by a human:
+
+```bash
+$ krank --json foo.hs
+[{"checker":"IssueTracker","level":"error","location":{"column":11,"file":"foo.hs","line":67},"message":"the issue is now Closed - You can remove the workaround you used there\ntitle: some title","subject":"https://github.com/bazelbuild/bazel/issues/6313"}]
+```
+
+`level` is `error` for a closed issue, `info` for an open one, and `warning`
+when the issue tracker could not be reached. So the closed issues are:
+
+```bash
+$ krank --json | jq -r '.[] | select(.level == "error") | .subject'
+```
+
+An empty run prints `[]`. Errors which prevent a file from being checked are
+reported on stderr, keeping stdout a valid JSON document.
+
 # Specific documentation
 
 [IssueTracker](docs/Checkers/IssueTracker.md) is listing Github and Gitlab

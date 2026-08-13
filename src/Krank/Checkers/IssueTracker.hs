@@ -225,8 +225,11 @@ issueToMessage i =
   where
     title = issueTitle i
 
-issuePrintUrl :: GitIssueRef -> Text
-issuePrintUrl GitIssueRef {owner, repo, server, issueNum} = [fmt|IssueTracker check for https://{serverDomain server}/{owner}/{repo}/issues/{issueNum}|]
+issueUrlText :: GitIssueRef -> Text
+issueUrlText GitIssueRef {owner, repo, server, issueNum} = [fmt|https://{serverDomain server}/{owner}/{repo}/issues/{issueNum}|]
+
+checkerName :: Text
+checkerName = "IssueTracker"
 
 checkText ::
   MonadKrank m =>
@@ -242,7 +245,8 @@ checkText path t = do
         fmap
           ( \issue ->
               Violation
-                { checker = issuePrintUrl . unLocalized $ issue,
+                { checker = checkerName,
+                  subject = issueUrlText . unLocalized $ issue,
                   level = Info,
                   message = "Dry run",
                   location = getLocation (issue :: Localized GitIssueRef)
@@ -255,14 +259,16 @@ checkText path t = do
   where
     f (Left (err, issue)) =
       Violation
-        { checker = issuePrintUrl . unLocalized $ issue,
+        { checker = checkerName,
+          subject = issueUrlText . unLocalized $ issue,
           level = Warning,
           message = "Error when calling the API:\n" <> err,
           location = getLocation (issue :: Localized GitIssueRef)
         }
     f (Right issue) =
       Violation
-        { checker = issuePrintUrl (unLocalized . gitIssue $ issue),
+        { checker = checkerName,
+          subject = issueUrlText (unLocalized . gitIssue $ issue),
           level = issueToLevel issue,
           message = issueToMessage issue,
           location = getLocation (gitIssue issue :: Localized GitIssueRef)

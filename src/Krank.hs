@@ -16,16 +16,18 @@ import Control.Exception.Safe
 import Control.Monad.Reader
 import qualified Data.ByteString
 import Data.Coerce
+import Data.Either (rights)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text.IO
 import Krank.Checkers.Ignore (filterViolations)
 import qualified Krank.Checkers.IssueTracker as IT
-import Krank.Formatter
+import Krank.Formatter (showViolation)
+import Krank.Formatter.Json (encodeViolations)
 import Krank.Types
 import qualified Network.HTTP.Req as Req
 import PyF
 import System.IO (stderr)
-import Control.Monad (forM_)
+import Control.Monad (forM_, unless, when)
 
 processFile ::
   MonadKrank m =>
@@ -43,13 +45,15 @@ processFile filePath = do
 
 runKrank :: MonadKrank m => [FilePath] -> m Bool
 runKrank paths = do
-  KrankConfig {useColors} <- krankAsks id
+  KrankConfig {useColors, jsonOutput} <- krankAsks id
   res <- krankForConcurrently paths $ \path ->
     (Right <$> processFile path)
       `catchAny` (\(SomeException e) -> pure $ Left [fmt|Error when processing {path}: {show e}|])
   forM_ res $ \case
     Left err -> krankPutStrLnStderr err
-    Right violations -> krankPutStr (foldMap (showViolation useColors) violations)
+    Right violations -> unless jsonOutput $ krankPutStr (foldMap (showViolation useColors) violations)
+  -- In JSON mode, stdout is a single document, so it is emitted once all the files are processed
+  when jsonOutput $ krankPutStr (encodeViolations (concat (rights res)))
   -- Check if any violation is an error
   pure $ not (any isError res)
 

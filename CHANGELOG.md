@@ -1,5 +1,12 @@
 # Revision history for krank
 
+## Unreleased
+
+* New `--json` argument. Violations are written to stdout as a JSON array,
+  making the output consumable by other tools.
+* Diagnostics about the missing `git` / `find` commands are reported on stderr
+  instead of stdout.
+
 ## 0.3.1 -- 2025-12-07
 
 * Support for GHC up to 9.12

@@ -12,12 +12,14 @@ where
 import Control.Exception.Safe (MonadCatch, MonadThrow, SomeException, throw)
 import Control.Monad.Reader
 import Control.Monad.Writer
-import Data.Aeson (Result (..), Value (..), fromJSON, object)
+import Data.Aeson (Result (..), Value (..), decodeStrict, fromJSON, object, toJSON)
 import Data.ByteString (ByteString)
 import Data.Coerce
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text.Encoding
 import Krank
 import Krank.Checkers.IssueTracker
 import Krank.Types
@@ -139,7 +141,8 @@ spec = do
             { githubKey = Nothing,
               gitlabKeys = Map.empty,
               dryRun = False,
-              useColors = False
+              useColors = False,
+              jsonOutput = False
             }
         env state10 title10 title11 =
           TestEnv
@@ -204,7 +207,8 @@ spec = do
               { githubKey = Nothing,
                 gitlabKeys = Map.empty,
                 dryRun = False,
-                useColors = False
+                useColors = False,
+                jsonOutput = False
               }
           testEnv =
             TestEnv
@@ -225,6 +229,31 @@ spec = do
                          [Text]
                      )
                    )
+    it "outputs json" $ do
+      let firstIssueTitle = "yuzu"
+      let secondIssueTitle = "kumquat"
+      let Right (status, (out, err)) = runReaderT (runWriterT (unTestKrank $ runKrank ["foo", "bar"])) (env "closed" firstIssueTitle secondIssueTitle, config {jsonOutput = True})
+      status `shouldBe` False
+      err `shouldBe` (["Error when processing bar: user error (file not found)"] :: [Text])
+      decodeStrict (Text.Encoding.encodeUtf8 (Text.concat out))
+        `shouldBe` Just
+          ( toJSON
+              [ object
+                  [ ("checker", String "IssueTracker"),
+                    ("subject", String "https://github.com/foo/bar/issues/10"),
+                    ("level", String "error"),
+                    ("message", String [fmt|the issue is now Closed - You can remove the workaround you used there\ntitle: {firstIssueTitle}|]),
+                    ("location", object [("file", String "foo"), ("line", Number 1), ("column", Number 12)])
+                  ],
+                object
+                  [ ("checker", String "IssueTracker"),
+                    ("subject", String "https://github.com/foo/bar/issues/11"),
+                    ("level", String "info"),
+                    ("message", String [fmt|the issue is still Open\ntitle: {secondIssueTitle}|]),
+                    ("location", object [("file", String "foo"), ("line", Number 2), ("column", Number 1)])
+                  ]
+              ]
+          )
   describe "it parses when there is two url on the same line" $ do
     it "works correctly with only one in second position" $ do
       extractIssues "foo" "https://ip.tyk.nu https://github.com/x/x/issues/32"
