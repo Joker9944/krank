@@ -40,7 +40,18 @@ foo.hs:67:11: error:
   now Closed: https://github.com/bazelbuild/bazel/issues/6313
 ```
 
-`krank` will fail (i.e. non-zero exit code) in case of any error.
+`krank` reports what it found through its exit code:
+
+| Exit code | Meaning |
+| --------- | ------- |
+| `0` | Nothing to report |
+| `1` | At least one linked issue is closed. That's a positive find, time to remove a workaround |
+| `2` | `krank` could not do its job, for example because a file could not be read. The report is incomplete |
+
+Exit code `1` and `2` are kept apart so that a build can tell a *finding* from a
+*failure*. Note that an issue tracker which cannot be reached is reported as a
+`warning` and does not affect the exit code, so a run which could check nothing
+still exits `0`.
 
 Here `krank` is telling us that our source code links to github
 issues which are now closed. Time to remove some workarounds now that
@@ -68,7 +79,8 @@ $ krank --json | jq -r '.[] | select(.level == "error") | .subject'
 ```
 
 An empty run prints `[]`. Errors which prevent a file from being checked are
-reported on stderr, keeping stdout a valid JSON document.
+reported on stderr, keeping stdout a valid JSON document, and the exit code is
+unchanged.
 
 # Specific documentation
 

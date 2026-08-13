@@ -158,7 +158,7 @@ spec = do
       let secondIssueTitle = "barbaz"
       let Right res = runReaderT (runWriterT (unTestKrank $ runKrank ["foo", "bar"])) (env "closed" firstIssueTitle secondIssueTitle, config)
       res
-        `shouldBe` ( False,
+        `shouldBe` ( Failure,
                      ( [[fmt|\nfoo:1:12: error:\n  IssueTracker check for https://github.com/foo/bar/issues/10\n    the issue is now Closed - You can remove the workaround you used there\n    | title: {firstIssueTitle}\n\nfoo:2:1: info:\n  IssueTracker check for https://github.com/foo/bar/issues/11\n    the issue is still Open\n    | title: {secondIssueTitle}\n|]] :: [Text],
                        ["Error when processing bar: user error (file not found)"] :: [Text]
                      )
@@ -168,7 +168,7 @@ spec = do
       let secondIssueTitle = "bouya"
       let Right res = runReaderT (runWriterT (unTestKrank $ runKrank ["foo"])) (env "closed" firstIssueTitle secondIssueTitle, config)
       res
-        `shouldBe` ( False,
+        `shouldBe` ( Findings,
                      ( [[fmt|\nfoo:1:12: error:\n  IssueTracker check for https://github.com/foo/bar/issues/10\n    the issue is now Closed - You can remove the workaround you used there\n    | title: {firstIssueTitle}\n\nfoo:2:1: info:\n  IssueTracker check for https://github.com/foo/bar/issues/11\n    the issue is still Open\n    | title: {secondIssueTitle}\n|]],
                        [] :: [Text]
                      )
@@ -178,7 +178,7 @@ spec = do
       let secondIssueTitle = "zuma"
       let Right res = runReaderT (runWriterT (unTestKrank $ runKrank ["foo", "bar"])) (env "open" firstIssueTitle secondIssueTitle, config)
       res
-        `shouldBe` ( False,
+        `shouldBe` ( Failure,
                      ( [[fmt|\nfoo:1:12: info:\n  IssueTracker check for https://github.com/foo/bar/issues/10\n    the issue is still Open\n    | title: {firstIssueTitle}\n\nfoo:2:1: info:\n  IssueTracker check for https://github.com/foo/bar/issues/11\n    the issue is still Open\n    | title: {secondIssueTitle}\n|]] :: [Text],
                        [ "Error when processing bar: user error (file not found)"
                        ] ::
@@ -194,7 +194,7 @@ spec = do
       let secondIssueTitle = "ria riu rio"
       let Right res = runReaderT (runWriterT (unTestKrank $ runKrank ["foo"])) (env "open" firstIssueTitle secondIssueTitle, config)
       res
-        `shouldBe` ( True,
+        `shouldBe` ( Clean,
                      ( [[fmt|\nfoo:1:12: info:\n  IssueTracker check for https://github.com/foo/bar/issues/10\n    the issue is still Open\n    | title: {firstIssueTitle}\n\nfoo:2:1: info:\n  IssueTracker check for https://github.com/foo/bar/issues/11\n    the issue is still Open\n    | title: {secondIssueTitle}\n|]] :: [Text],
                        [] :: [Text]
                      )
@@ -222,7 +222,7 @@ spec = do
       let Right res = runReaderT (runWriterT (unTestKrank $ runKrank ["foo", "bar"])) (testEnv, testConfig)
       -- TODO: perhaps ignored lines must appears in the listing, but not as error
       res
-        `shouldBe` ( False,
+        `shouldBe` ( Failure,
                      ( [[fmt|\nfoo:2:1: info:\n  IssueTracker check for https://github.com/foo/bar/issues/11\n    the issue is still Open\n    | title: {secondIssueTitle}\n|]] :: [Text],
                        [ "Error when processing bar: user error (file not found)"
                        ] ::
@@ -233,7 +233,7 @@ spec = do
       let firstIssueTitle = "yuzu"
       let secondIssueTitle = "kumquat"
       let Right (status, (out, err)) = runReaderT (runWriterT (unTestKrank $ runKrank ["foo", "bar"])) (env "closed" firstIssueTitle secondIssueTitle, config {jsonOutput = True})
-      status `shouldBe` False
+      status `shouldBe` Failure
       err `shouldBe` (["Error when processing bar: user error (file not found)"] :: [Text])
       decodeStrict (Text.Encoding.encodeUtf8 (Text.concat out))
         `shouldBe` Just

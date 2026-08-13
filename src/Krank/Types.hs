@@ -6,6 +6,7 @@ module Krank.Types
     GitlabKey (..),
     Violation (..),
     ViolationLevel (..),
+    Outcome (..),
     KrankConfig (..),
     SourcePos (..),
     Localized (..),
@@ -27,6 +28,17 @@ newtype GitlabKey = GitlabKey Text deriving (Show)
 newtype GitlabHost = GitlabHost Text deriving (Show, Ord, Eq)
 
 data ViolationLevel = Info | Warning | Error deriving (Show)
+
+-- | The result of a krank run, by increasing order of severity. The 'Ord'
+-- instance is what combines the per file outcomes: the most severe one wins.
+data Outcome
+  = -- | Nothing to report
+    Clean
+  | -- | At least one issue is closed. That's a positive find
+    Findings
+  | -- | Krank could not do its job, so the report is incomplete
+    Failure
+  deriving (Show, Eq, Ord)
 
 data SourcePos = SourcePos
   { file :: FilePath,

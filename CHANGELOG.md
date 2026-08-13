@@ -4,6 +4,14 @@
 
 * New `--json` argument. Violations are written to stdout as a JSON array,
   making the output consumable by other tools.
+* A file which cannot be processed now exits with code `2` instead of `1`, so
+  that a closed issue (`1`) can be told apart from `krank` failing to do its
+  job. An issue tracker which cannot be reached is still a `warning` and does
+  not affect the exit code.
+* Failing to establish the list of files to check is now an error (`2`) instead
+  of silently checking nothing and exiting `0`.
+* The `find` fallback used when `git ls-files` is unavailable was invoked with
+  an empty path and could never work.
 * Diagnostics about the missing `git` / `find` commands are reported on stderr
   instead of stdout.
 

@@ -5,7 +5,9 @@
 
 import Control.Applicative (optional)
 import Control.Exception (catch)
+import Control.Monad (filterM, when)
 import Control.Monad.Reader
+import Data.List (stripPrefix)
 import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Text as Text
@@ -16,13 +18,13 @@ import Options.Applicative (many, (<**>))
 import qualified Options.Applicative as Opt
 import PyF (fmt)
 import System.Console.Pretty (supportsPretty)
+import System.Directory (doesFileExist)
 import System.Environment (lookupEnv)
-import System.Exit (exitFailure)
+import System.Exit (ExitCode (..), exitWith)
 import System.IO (hPrint, hPutStrLn, hSetEncoding, stderr, stdout, utf8)
 import System.Process
 import Text.Regex.PCRE.Heavy
 import Version (displayVersion)
-import Control.Monad (unless)
 
 data KrankOpts = KrankOpts
   { codeFilePaths :: [FilePath],
@@ -103,6 +105,7 @@ opts =
     ( Opt.fullDesc
         <> Opt.progDesc "Checks the comments in FILES"
         <> Opt.header "krank - a comment linter / analytics tool"
+        <> Opt.failureCode 2
     )
 
 main :: IO ()
@@ -126,22 +129,38 @@ main = do
 
   -- If files are not explicitly listed, try `git ls-files` and `find`.
   files <- case codeFilePaths config of
-    [] -> (lines <$> readProcess "git" ["ls-files"] "") `catch` (\(e :: SomeException) -> noGitFailure e)
-    l -> pure l
+    [] -> do
+      discovered <- (Just . lines <$> readProcess "git" ["ls-files"] "") `catch` (\(e :: SomeException) -> noGitFailure e)
+      -- `git ls-files` lists submodules which are tracked but locally deleted.
+      traverse (filterM doesFileExist) discovered
+    l -> pure (Just l)
 
-  success <- runReaderT (unKrank $ runKrank files) kConfig
-  unless success exitFailure
+  case files of
+    -- The list of files to check could not be established, so krank has no
+    -- idea of what it was supposed to look at
+    Nothing -> exitWith (ExitFailure 2)
+    Just filesToCheck -> do
+      outcome <- runReaderT (unKrank $ runKrank filesToCheck) kConfig
+      case outcome of
+        Clean -> pure ()
+        Findings -> exitWith (ExitFailure 1)
+        Failure -> exitWith (ExitFailure 2)
 
--- Note: those diagnostics go to stderr so that stdout stays a valid JSON
--- document when --json is used
-noGitFailure :: SomeException -> IO [String]
+-- | Note: those diagnostics go to stderr so that stdout stays a valid JSON
+-- document when --json is used.
+-- 'Nothing' means that the file list could not be established, which is
+-- different from an empty list of files to check.
+noGitFailure :: SomeException -> IO (Maybe [String])
 noGitFailure e = do
   hPrint stderr e
   hPutStrLn stderr "`Git` was not found, trying to list files using `find`"
-  (lines <$> readProcess "find" [""] "") `catch` findFailure
+  (Just . map dropFindPathPrefix . lines <$> readProcess "find" [".", "-type", "f"] "") `catch` findFailure
 
-findFailure :: SomeException -> IO [FilePath]
+findFailure :: SomeException -> IO (Maybe [FilePath])
 findFailure e = do
   hPrint stderr e
   hPutStrLn stderr "`find` was not found, please pass file argument manually"
-  pure []
+  pure Nothing
+
+dropFindPathPrefix :: FilePath -> FilePath
+dropFindPathPrefix path = fromMaybe path (stripPrefix "./" path)

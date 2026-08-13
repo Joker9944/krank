@@ -43,7 +43,7 @@ processFile filePath = do
   -- forcing to Normal Form (with deepseq) does not bring anymore improvement
   pure $! filtered
 
-runKrank :: MonadKrank m => [FilePath] -> m Bool
+runKrank :: MonadKrank m => [FilePath] -> m Outcome
 runKrank paths = do
   KrankConfig {useColors, jsonOutput} <- krankAsks id
   res <- krankForConcurrently paths $ \path ->
@@ -54,13 +54,15 @@ runKrank paths = do
     Right violations -> unless jsonOutput $ krankPutStr (foldMap (showViolation useColors) violations)
   -- In JSON mode, stdout is a single document, so it is emitted once all the files are processed
   when jsonOutput $ krankPutStr (encodeViolations (concat (rights res)))
-  -- Check if any violation is an error
-  pure $ not (any isError res)
+  pure $ maximum (Clean : map fileOutcome res)
 
--- | Returns 'True' if any violation level is error or if any error occurs.
-isError :: Either Text.Text [Violation] -> Bool
-isError (Left _) = True
-isError (Right violations) = any isViolationError violations
+-- | The outcome for a single file. A file which could not be processed at all
+-- is a 'Failure', because whatever it contains is missing from the report.
+fileOutcome :: Either Text.Text [Violation] -> Outcome
+fileOutcome (Left _) = Failure
+fileOutcome (Right violations)
+  | any isViolationError violations = Findings
+  | otherwise = Clean
 
 isViolationError :: Violation -> Bool
 isViolationError Violation {level = Error} = True

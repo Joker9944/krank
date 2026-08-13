@@ -82,6 +82,7 @@ executable krank
   build-depends:       base >=4.9 && <= 5.0
                        , PyF
                        , containers
+                       , directory
                        , krank
                        , mtl
                        , optparse-applicative >= 0.14
